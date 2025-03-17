@@ -1,0 +1,156 @@
+// Firestore Rules for Podium App
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Check if user owns the data
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+    
+    // Check if user is an admin
+    function isAdmin() {
+      return isAuthenticated() && get(/databases/$(database)/documents/user_profiles/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // User profiles collection
+    match /user_profiles/{userId} {
+      // Users can read any profile, but can only modify their own
+      allow read: if isAuthenticated();
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId) || isAdmin();
+      allow delete: if isAdmin();
+    }
+    
+    // Songs collection
+    match /songs/{songId} {
+      // Anyone can read songs
+      allow read: if true;
+      
+      // Only users with musician or admin roles can create songs
+      allow create: if 
+        isAuthenticated() && 
+        (get(/databases/$(database)/documents/user_profiles/$(request.auth.uid)).data.role == 'musician' || 
+         isAdmin());
+      
+      // Only the song creator or admins can update songs
+      allow update: if 
+        isAuthenticated() && 
+        (resource.data.createdBy == request.auth.uid || isAdmin());
+      
+      // Only admins can delete songs
+      allow delete: if isAdmin();
+    }
+    
+    // Comments collection
+    match /comments/{commentId} {
+      // Anyone can read comments
+      allow read: if true;
+      
+      // Authenticated users can create comments
+      allow create: if isAuthenticated();
+      
+      // Only the comment creator or admins can update/delete comments
+      allow update, delete: if 
+        isAuthenticated() && 
+        (resource.data.userId == request.auth.uid || isAdmin());
+    }
+    
+    // Playlists collection
+    match /playlists/{playlistId} {
+      // Public playlists can be read by anyone, private only by the owner
+      allow read: if 
+        resource.data.isPublic == true || 
+        (isAuthenticated() && resource.data.createdBy == request.auth.uid) ||
+        isAdmin();
+      
+      // Any authenticated user can create playlists
+      allow create: if isAuthenticated();
+      
+      // Only the playlist creator or admins can update/delete playlists
+      allow update, delete: if 
+        isAuthenticated() && 
+        (resource.data.createdBy == request.auth.uid || isAdmin());
+    }
+    
+    // Professional Feedback
+    match /feedback/{feedbackId} {
+      // Feedback can be read by the song creator, the feedback provider, or admins
+      allow read: if 
+        isAuthenticated() && 
+        (resource.data.songCreator == request.auth.uid || 
+         resource.data.providedBy == request.auth.uid ||
+         isAdmin());
+      
+      // Only professionals or admins can create feedback
+      allow create: if 
+        isAuthenticated() && 
+        (get(/databases/$(database)/documents/user_profiles/$(request.auth.uid)).data.role == 'professional' || 
+         isAdmin());
+      
+      // Only the feedback provider or admins can update feedback
+      allow update: if 
+        isAuthenticated() && 
+        (resource.data.providedBy == request.auth.uid || isAdmin());
+      
+      // Only admins can delete feedback
+      allow delete: if isAdmin();
+    }
+    
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
+
+// Storage Rules
+service firebase.storage {
+  match /b/{bucket}/o {
+    // User avatars
+    match /avatars/{userId}/{fileName} {
+      allow read: if true;
+      allow write: if request.auth.uid == userId || isAdmin();
+    }
+    
+    // Song covers
+    match /covers/{songId}/{fileName} {
+      allow read: if true;
+      allow write: if 
+        request.auth != null && 
+        (
+          // Musician uploading a new cover
+          get(/databases/$(database)/documents/user_profiles/$(request.auth.uid)).data.role == 'musician' ||
+          // Owner updating song cover
+          get(/databases/$(database)/documents/songs/$(songId)).data.createdBy == request.auth.uid ||
+          // Admin
+          get(/databases/$(database)/documents/user_profiles/$(request.auth.uid)).data.role == 'admin'
+        );
+    }
+    
+    // Audio files
+    match /audio/{songId}/{fileName} {
+      allow read: if true;
+      allow write: if 
+        request.auth != null && 
+        (
+          // Musician uploading a new song
+          get(/databases/$(database)/documents/user_profiles/$(request.auth.uid)).data.role == 'musician' ||
+          // Owner updating song file
+          get(/databases/$(database)/documents/songs/$(songId)).data.createdBy == request.auth.uid ||
+          // Admin
+          get(/databases/$(database)/documents/user_profiles/$(request.auth.uid)).data.role == 'admin'
+        );
+    }
+    
+    // Default deny
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
