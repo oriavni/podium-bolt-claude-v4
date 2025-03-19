@@ -1398,6 +1398,9 @@ video {
 .border-b {
   border-bottom-width: 1px;
 }
+.border-b-2 {
+  border-bottom-width: 2px;
+}
 .border-l {
   border-left-width: 1px;
 }
@@ -1406,9 +1409,6 @@ video {
 }
 .border-t {
   border-top-width: 1px;
-}
-.border-b-2 {
-  border-bottom-width: 2px;
 }
 .border-dashed {
   border-style: dashed;

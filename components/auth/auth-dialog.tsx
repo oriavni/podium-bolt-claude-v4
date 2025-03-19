@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,6 +25,12 @@ export function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
   const [mediaOutlet, setMediaOutlet] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  // Force loading state to reset when dialog closes
+  useEffect(() => {
+    if (!open) {
+      setLoading(false);
+    }
+  }, [open]);
   const { signIn, signUp } = useAuth();
 
   const getErrorMessage = (error: any): string => {
@@ -51,55 +57,80 @@ export function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
     setError(null);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  // Use a non-async function to ensure proper loading state management
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setLoading(true);
 
-    try {
-      if (isSignUp) {
-        // First create the user
-        const userCredential = await signUp(email, password);
-        
-        if (!userCredential?.uid) {
-          throw new Error("Failed to create user account");
-        }
-
-        // Save to localStorage to ensure role consistency
-        localStorage.setItem('userRole', role);
-
-        // Then create the user profile in Firestore
-        await setDoc(doc(db, 'user_profiles', userCredential.uid), {
-          role,
-          displayName: displayName || email.split('@')[0],
-          email: userCredential.email,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          lastSeenAt: new Date().toISOString(),
-          verified: false,
-          followerCount: 0,
-          followingCount: 0,
-          songCount: 0,
-          bio: null,
-          avatarUrl: null,
-          website: null,
-          location: null,
-          socialLinks: {},
-          ...(role === 'media' && { 
-            mediaOutlet,
-            approvedByAdmin: false
-          })
-        });
-      } else {
-        await signIn(email, password);
-      }
-      resetForm();
-      onOpenChange(false);
-    } catch (error: any) {
-      console.error("Auth error:", error);
-      setError(getErrorMessage(error));
-    } finally {
+    // Use a safety timeout to ensure loading state is never stuck for more than 10 seconds
+    const safetyTimeout = setTimeout(() => {
       setLoading(false);
+    }, 10000);
+
+    // Create or sign in the user
+    if (isSignUp) {
+      // First create the user
+      signUp(email, password)
+        .then(userCredential => {
+          // Set role in localStorage immediately
+          localStorage.setItem('userRole', role);
+          
+          // Then create the user profile in Firestore
+          return setDoc(doc(db, 'user_profiles', userCredential.uid), {
+            role,
+            displayName: displayName || email.split('@')[0],
+            email: userCredential.email,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            lastSeenAt: new Date().toISOString(),
+            verified: false,
+            followerCount: 0,
+            followingCount: 0,
+            songCount: 0,
+            bio: null,
+            avatarUrl: null,
+            website: null,
+            location: null,
+            socialLinks: {},
+            ...(role === 'media' && { 
+              mediaOutlet,
+              approvedByAdmin: false
+            })
+          }).catch(profileError => {
+            console.error("Error creating profile:", profileError);
+            // Continue anyway
+            return userCredential;
+          });
+        })
+        .then(() => {
+          // Success - close the dialog
+          resetForm();
+          clearTimeout(safetyTimeout);
+          setLoading(false);
+          onOpenChange(false);
+        })
+        .catch(error => {
+          console.error("Auth error:", error);
+          setError(getErrorMessage(error));
+          clearTimeout(safetyTimeout);
+          setLoading(false);
+        });
+    } else {
+      // Sign in
+      signIn(email, password)
+        .then(() => {
+          resetForm();
+          clearTimeout(safetyTimeout);
+          setLoading(false);
+          onOpenChange(false);
+        })
+        .catch(error => {
+          console.error("Auth error:", error);
+          setError(getErrorMessage(error));
+          clearTimeout(safetyTimeout);
+          setLoading(false);
+        });
     }
   };
 
@@ -192,7 +223,15 @@ export function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
             />
           </div>
 
-          <Button type="submit" className="w-full" disabled={loading}>
+          <Button 
+            type="submit" 
+            className="w-full" 
+            disabled={loading}
+            onClick={() => {
+              // This prevents the button from appearing stuck if form validation fails
+              if (loading) setTimeout(() => setLoading(false), 5000);
+            }}
+          >
             {loading ? "Loading..." : isSignUp ? "Create Account" : "Sign In"}
           </Button>
 

@@ -51,7 +51,14 @@ export function useAuth() {
 
   const signOut = async () => {
     try {
+      // Clear local storage first
+      localStorage.removeItem('userRole');
+      
+      // Sign out from Firebase
       await firebaseSignOut(auth);
+      
+      // Redirect to home page to fully reset app state
+      window.location.href = '/';
     } catch (error: any) {
       console.error("Sign out error:", error);
       throw error;
