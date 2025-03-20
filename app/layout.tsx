@@ -5,6 +5,8 @@ import { Sidebar } from '@/components/sidebar';
 import { Header } from '@/components/header';
 import { ThemeProvider } from '@/components/theme-provider';
 import { AuthProvider } from '@/components/auth/auth-provider';
+import { AudioProvider } from '@/lib/context/audio-context';
+import { AudioPlayer } from '@/components/audio-player';
 
 // Configure Inter font with fallback
 const inter = Inter({
@@ -29,15 +31,19 @@ export default function RootLayout({
       <body className={inter.className}>
         <ThemeProvider attribute="class" defaultTheme="dark">
           <AuthProvider>
-            <div className="flex h-screen overflow-hidden">
-              <Sidebar />
-              <div className="flex-1 flex flex-col overflow-hidden">
-                <Header />
-                <main className="flex-1 overflow-auto">
-                  {children}
-                </main>
+            <AudioProvider>
+              <div className="flex h-screen overflow-hidden">
+                <Sidebar />
+                <div className="flex-1 flex flex-col overflow-hidden">
+                  <Header />
+                  <main className="flex-1 overflow-auto">
+                    {children}
+                  </main>
+                </div>
               </div>
-            </div>
+              {/* The AudioPlayer is positioned fixed at the bottom of the screen */}
+              <AudioPlayer />
+            </AudioProvider>
           </AuthProvider>
         </ThemeProvider>
       </body>

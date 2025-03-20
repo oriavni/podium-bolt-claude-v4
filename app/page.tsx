@@ -121,6 +121,7 @@ export default function Home() {
                 <SongButton 
                   song={song}
                   className="cursor-pointer"
+                  playOnHover={true}
                 >
                   {/* Main card with image and hover effects */}
                   <div

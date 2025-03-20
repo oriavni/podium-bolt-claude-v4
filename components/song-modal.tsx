@@ -6,6 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { 
   Play, 
+  Pause,
   SkipBack, 
   SkipForward, 
   Volume2, 
@@ -34,6 +35,7 @@ import { ShareDialog } from "@/components/share-dialog";
 import { CommentsSection } from "@/components/comments-section";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
+import { useAudio } from "@/lib/context/audio-context";
 
 interface SongModalProps {
   song: Song | null;
@@ -78,12 +80,23 @@ function getYoutubeVideoId(url: string): string | null {
 }
 
 export function SongModal({ song, isOpen, onClose }: SongModalProps) {
-  const [isPlaying, setIsPlaying] = useState(false);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [showComments, setShowComments] = useState(false);
   const [youtubeEmbedUrl, setYoutubeEmbedUrl] = useState<string | null>(null);
   const [isAnimating, setIsAnimating] = useState(false);
   const [showStats, setShowStats] = useState(false);
+  
+  // Access the audio context
+  const { 
+    play, 
+    pause, 
+    isPlaying, 
+    currentSong, 
+    addToQueue 
+  } = useAudio();
+  
+  // Check if this song is currently playing
+  const isCurrentSong = currentSong?.id === song?.id;
 
   // Handle escape key to close modal
   useEffect(() => {
@@ -225,9 +238,19 @@ export function SongModal({ song, isOpen, onClose }: SongModalProps) {
                     <Button
                       size="lg"
                       className="rounded-full w-16 h-16"
-                      onClick={() => setIsPlaying(!isPlaying)}
+                      onClick={() => {
+                        if (isCurrentSong && isPlaying) {
+                          pause();
+                        } else {
+                          play(song);
+                        }
+                      }}
                     >
-                      <Play className="w-8 h-8" />
+                      {isCurrentSong && isPlaying ? (
+                        <Pause className="w-8 h-8" />
+                      ) : (
+                        <Play className="w-8 h-8" />
+                      )}
                     </Button>
                   </div>
                 </div>
@@ -567,19 +590,33 @@ export function SongModal({ song, isOpen, onClose }: SongModalProps) {
                 </div>
               </div>
 
-              {/* Audio Player */}
+              {/* Audio Player Controls */}
               <div className="bg-secondary/50 rounded-lg p-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-2">
-                      <Button variant="ghost" size="icon">
-                        <SkipBack className="w-4 h-4" />
-                      </Button>
-                      <Button size="icon" onClick={() => setIsPlaying(!isPlaying)}>
-                        <Play className="w-4 h-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon">
-                        <SkipForward className="w-4 h-4" />
+                    <div>
+                      <Button 
+                        className="gap-2 w-28"
+                        onClick={() => {
+                          if (isCurrentSong && isPlaying) {
+                            pause();
+                          } else {
+                            play(song);
+                          }
+                          handleClose();
+                        }}
+                      >
+                        {isCurrentSong && isPlaying ? (
+                          <>
+                            <Pause className="w-4 h-4" />
+                            Pause
+                          </>
+                        ) : (
+                          <>
+                            <Play className="w-4 h-4" />
+                            Play Song
+                          </>
+                        )}
                       </Button>
                     </div>
                     <div>
@@ -595,10 +632,16 @@ export function SongModal({ song, isOpen, onClose }: SongModalProps) {
                     </div>
                   </div>
                   <div className="flex items-center gap-4">
-                    <Volume2 className="w-4 h-4 text-muted-foreground" />
-                    <div className="w-24 h-1 bg-secondary rounded-full">
-                      <div className="w-3/4 h-full bg-primary rounded-full" />
-                    </div>
+                    <Button
+                      variant="secondary"
+                      className="gap-2"
+                      onClick={() => {
+                        addToQueue(song);
+                      }}
+                    >
+                      <ListMusic className="w-4 h-4" />
+                      Add to Queue
+                    </Button>
                   </div>
                 </div>
               </div>
