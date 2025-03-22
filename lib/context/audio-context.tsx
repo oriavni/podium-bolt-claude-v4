@@ -89,19 +89,27 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     
-    // Use different sample tracks based on song ID for testing
-    // These are public domain audio samples
-    const audioUrls = {
-      "1": "https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=electronic-future-beats-117997.mp3", // Electronic
-      "2": "https://cdn.pixabay.com/download/audio/2022/10/14/audio_99cbd8e0ee.mp3?filename=hip-hop-beat-140752.mp3", // Hip Hop
-      "3": "https://cdn.pixabay.com/download/audio/2022/03/15/audio_80328eb25c.mp3?filename=relaxing-145038.mp3", // Ambient/Relaxing
-      "4": "https://cdn.pixabay.com/download/audio/2022/08/02/audio_884fe5a085.mp3?filename=powerful-beat-121791.mp3", // Electronic
-      // Default track if ID doesn't match
-      "default": "https://cdn.pixabay.com/download/audio/2022/05/16/audio_946bc1914e.mp3?filename=lofi-study-112191.mp3"
-    };
+    // Determine the audio URL to use
+    let audioUrl: string;
     
-    // Select audio track based on song ID
-    const audioUrl = audioUrls[currentSong.id as keyof typeof audioUrls] || audioUrls.default;
+    // Check if this song has an actual audio file URL specified
+    if (currentSong.audioUrl) {
+      audioUrl = currentSong.audioUrl;
+    } else {
+      // Use our sample tracks based on song ID for testing/default songs
+      // These are public domain audio samples
+      const audioUrls = {
+        "1": "https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=electronic-future-beats-117997.mp3", // Electronic
+        "2": "https://cdn.pixabay.com/download/audio/2022/10/14/audio_99cbd8e0ee.mp3?filename=hip-hop-beat-140752.mp3", // Hip Hop
+        "3": "https://cdn.pixabay.com/download/audio/2022/03/15/audio_80328eb25c.mp3?filename=relaxing-145038.mp3", // Ambient/Relaxing
+        "4": "https://cdn.pixabay.com/download/audio/2022/08/02/audio_884fe5a085.mp3?filename=powerful-beat-121791.mp3", // Electronic
+        // Default track if ID doesn't match
+        "default": "https://cdn.pixabay.com/download/audio/2022/05/16/audio_946bc1914e.mp3?filename=lofi-study-112191.mp3"
+      };
+      
+      // Use sample audio based on song ID or default if not matched
+      audioUrl = audioUrls[currentSong.id as keyof typeof audioUrls] || audioUrls.default;
+    }
     
     const isSameSource = audioRef.current.src === audioUrl;
     
@@ -109,13 +117,21 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
       audioRef.current.src = audioUrl;
       audioRef.current.load();
       
-      // Start playing automatically when a new song is selected
-      setIsPlaying(true);
-      
-      audioRef.current.play().catch(error => {
-        console.error('Error playing audio:', error);
-        setIsPlaying(false);
-      });
+      // Set up canplay handler for when the audio is ready
+      audioRef.current.addEventListener('canplay', () => {
+        // Start playing automatically when a new song is selected
+        setIsPlaying(true);
+        
+        // Set current position if preview trimming is defined and we're starting a new song
+        if (currentSong.previewTrim?.start !== undefined && currentSong.previewTrim.start > 0) {
+          audioRef.current!.currentTime = currentSong.previewTrim.start;
+        }
+        
+        audioRef.current!.play().catch(error => {
+          console.error('Error playing audio:', error);
+          setIsPlaying(false);
+        });
+      }, { once: true });
     } else if (isPlaying) {
       // If it's the same song and should be playing, ensure it's playing
       audioRef.current.play().catch(error => {

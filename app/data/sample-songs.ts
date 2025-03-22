@@ -13,11 +13,17 @@ export interface Song {
   artist: string;
   coverUrl: string;
   youtubeUrl?: string;
+  audioUrl?: string;
   genre?: string[];
   supporters: Supporter[];
   likes: number;
   plays: number;
   uploadDate: string;
+  // Preview trimming settings
+  previewTrim?: {
+    start: number;
+    end: number;
+  };
   socialLinks?: {
     instagram?: string;
     facebook?: string;
@@ -47,6 +53,11 @@ export const sampleSongs: Song[] = [
     artist: "Luna Eclipse",
     coverUrl: "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=800&q=80",
     youtubeUrl: "https://www.youtube.com/watch?v=7CxcxhHN5Is&ab_channel=%D7%9B%D7%90%D7%9F%7C%D7%97%D7%93%D7%A9%D7%95%D7%AA-%D7%AA%D7%90%D7%92%D7%99%D7%93%D7%94%D7%A9%D7%99%D7%93%D7%95%D7%A8%D7%94%D7%99%D7%A9%D7%A8%D7%90%D7%9C%D7%99",
+    audioUrl: "https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3",
+    previewTrim: {
+      start: 0,
+      end: 20
+    },
     genre: ["Electronic", "Ambient"],
     socialLinks: {
       instagram: "instagram.com/oa_roya",
@@ -88,6 +99,11 @@ export const sampleSongs: Song[] = [
     artist: "Metro Pulse",
     coverUrl: "https://images.unsplash.com/photo-1511379938547-c1f69419868d?w=800&q=80",
     youtubeUrl: "https://www.youtube.com/watch?v=7CxcxhHN5Is&ab_channel=%D7%9B%D7%90%D7%9F%7C%D7%97%D7%93%D7%A9%D7%95%D7%AA-%D7%AA%D7%90%D7%92%D7%99%D7%93%D7%94%D7%A9%D7%99%D7%93%D7%95%D7%A8%D7%94%D7%99%D7%A9%D7%A8%D7%90%D7%9C%D7%99",
+    audioUrl: "https://cdn.pixabay.com/download/audio/2022/10/14/audio_99cbd8e0ee.mp3",
+    previewTrim: {
+      start: 5,
+      end: 25
+    },
     genre: ["Hip Hop", "Urban"],
     socialLinks: {
       instagram: "instagram.com/metropulse",
@@ -117,6 +133,11 @@ export const sampleSongs: Song[] = [
     artist: "Coastal Harmony",
     coverUrl: "https://images.unsplash.com/photo-1459749411175-04bf5292ceea?w=800&q=80",
     youtubeUrl: "https://www.youtube.com/watch?v=7CxcxhHN5Is&ab_channel=%D7%9B%D7%90%D7%9F%7C%D7%97%D7%93%D7%A9%D7%95%D7%AA-%D7%AA%D7%90%D7%92%D7%99%D7%93%D7%94%D7%A9%D7%99%D7%93%D7%95%D7%A8%D7%94%D7%99%D7%A9%D7%A8%D7%90%D7%9C%D7%99",
+    audioUrl: "https://cdn.pixabay.com/download/audio/2022/03/15/audio_80328eb25c.mp3",
+    previewTrim: {
+      start: 10,
+      end: 30
+    },
     genre: ["Ambient", "Nature"],
     socialLinks: {
       soundcloud: "soundcloud.com/coastalharmony",
@@ -155,6 +176,11 @@ export const sampleSongs: Song[] = [
     artist: "Voltage Dreams",
     coverUrl: "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=800&q=80",
     youtubeUrl: "https://www.youtube.com/watch?v=7CxcxhHN5Is&ab_channel=%D7%9B%D7%90%D7%9F%7C%D7%97%D7%93%D7%A9%D7%95%D7%AA-%D7%AA%D7%90%D7%92%D7%99%D7%93%D7%94%D7%A9%D7%99%D7%93%D7%95%D7%A8%D7%94%D7%99%D7%A9%D7%A8%D7%90%D7%9C%D7%99",
+    audioUrl: "https://cdn.pixabay.com/download/audio/2022/08/02/audio_884fe5a085.mp3",
+    previewTrim: {
+      start: 2,
+      end: 22
+    },
     genre: ["Electronic", "Soul"],
     socialLinks: {
       facebook: "facebook.com/voltagedreams",

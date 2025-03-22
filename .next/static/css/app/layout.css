@@ -755,6 +755,9 @@ video {
 .ml-1 {
   margin-left: 0.25rem;
 }
+.ml-2 {
+  margin-left: 0.5rem;
+}
 .ml-auto {
   margin-left: auto;
 }
@@ -1015,6 +1018,9 @@ video {
 }
 .w-4 {
   width: 1rem;
+}
+.w-40 {
+  width: 10rem;
 }
 .w-48 {
   width: 12rem;
@@ -1475,6 +1481,9 @@ video {
 .border-muted-foreground {
   border-color: hsl(var(--muted-foreground));
 }
+.border-muted-foreground\/30 {
+  border-color: hsl(var(--muted-foreground) / 0.3);
+}
 .border-primary {
   border-color: hsl(var(--primary));
 }
@@ -1607,6 +1616,9 @@ video {
 }
 .bg-secondary\/10 {
   background-color: hsl(var(--secondary) / 0.1);
+}
+.bg-secondary\/20 {
+  background-color: hsl(var(--secondary) / 0.2);
 }
 .bg-secondary\/30 {
   background-color: hsl(var(--secondary) / 0.3);
@@ -2309,6 +2321,10 @@ video {
   border-color: hsl(var(--primary) / 0.3);
 }
 
+.hover\:border-primary\/50:hover {
+  border-color: hsl(var(--primary) / 0.5);
+}
+
 .hover\:bg-accent:hover {
   background-color: hsl(var(--accent));
 }
@@ -2373,6 +2389,10 @@ video {
   background-color: hsl(var(--secondary));
 }
 
+.hover\:bg-secondary\/30:hover {
+  background-color: hsl(var(--secondary) / 0.3);
+}
+
 .hover\:bg-secondary\/50:hover {
   background-color: hsl(var(--secondary) / 0.5);
 }
@@ -2391,6 +2411,10 @@ video {
 
 .hover\:text-accent-foreground:hover {
   color: hsl(var(--accent-foreground));
+}
+
+.hover\:text-destructive:hover {
+  color: hsl(var(--destructive));
 }
 
 .hover\:text-foreground:hover {
@@ -3263,6 +3287,13 @@ video {
   }
 
   .lg\:grid-cols-4 {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1280px) {
+
+  .xl\:grid-cols-4 {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
