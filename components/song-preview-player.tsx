@@ -34,6 +34,8 @@ export function SongPreviewPlayer({ song, isHovering }: SongPreviewPlayerProps) 
   
   // Initialize and handle audio element
   useEffect(() => {
+    console.log("Creating audio element for song:", song.id, song.title);
+    
     // Determine the audio URL to use
     let audioUrl: string;
     
@@ -43,28 +45,41 @@ export function SongPreviewPlayer({ song, isHovering }: SongPreviewPlayerProps) 
     } else {
       // Use our sample tracks based on song ID for testing/default songs
       // These are public domain audio samples
-      const audioUrls = {
+      const audioUrls: Record<string, string> = {
         "1": "https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=electronic-future-beats-117997.mp3", // Electronic
         "2": "https://cdn.pixabay.com/download/audio/2022/10/14/audio_99cbd8e0ee.mp3?filename=hip-hop-beat-140752.mp3", // Hip Hop
         "3": "https://cdn.pixabay.com/download/audio/2022/03/15/audio_80328eb25c.mp3?filename=relaxing-145038.mp3", // Ambient/Relaxing
         "4": "https://cdn.pixabay.com/download/audio/2022/08/02/audio_884fe5a085.mp3?filename=powerful-beat-121791.mp3", // Electronic
-        // Default track if ID doesn't match
         "default": "https://cdn.pixabay.com/download/audio/2022/05/16/audio_946bc1914e.mp3?filename=lofi-study-112191.mp3"
       };
       
       // Use sample audio based on song ID or default if not matched
-      audioUrl = audioUrls[song.id as keyof typeof audioUrls] || audioUrls.default;
+      audioUrl = audioUrls[song.id] || audioUrls.default;
     }
     
+    console.log("Using audio URL:", audioUrl);
+    
     // Create audio element
-    const audio = new Audio(audioUrl);
+    const audio = new Audio();
+    audio.src = audioUrl;
     audio.volume = 0.5;
     audio.muted = isMuted;
     audio.preload = "auto";
+    audio.crossOrigin = "anonymous"; // For CORS
     
     // Set up event listeners
     audio.addEventListener('canplaythrough', () => {
+      console.log("Audio can play through:", song.id);
       setAudioLoaded(true);
+    });
+    
+    audio.addEventListener('loadeddata', () => {
+      console.log("Audio data loaded:", song.id);
+      setAudioLoaded(true);
+    });
+    
+    audio.addEventListener('error', (e) => {
+      console.error("Audio loading error:", e);
     });
     
     audio.addEventListener('timeupdate', () => {
@@ -90,58 +105,84 @@ export function SongPreviewPlayer({ song, isHovering }: SongPreviewPlayerProps) 
     });
     
     audio.addEventListener('ended', () => {
+      console.log("Audio ended:", song.id);
       setIsPlaying(false);
     });
     
     audio.addEventListener('play', () => {
+      console.log("Audio playing:", song.id);
       setIsPlaying(true);
     });
     
     audio.addEventListener('pause', () => {
+      console.log("Audio paused:", song.id);
       setIsPlaying(false);
     });
+    
+    // Force loading
+    audio.load();
     
     // Store audio element
     audioRef.current = audio;
     
     // Cleanup
     return () => {
+      console.log("Cleaning up audio element for song:", song.id);
       audio.pause();
       audio.src = '';
+      audioRef.current = null;
       setAudioLoaded(false);
     };
-  }, [song.id, song.audioUrl]);
+  }, [song.id, song.audioUrl, isMuted]);
   
   // Handle hover state change
   useEffect(() => {
-    if (!audioRef.current || !audioLoaded) return;
+    console.log("Hover state changed:", isHovering, "for song:", song.id);
+    
+    if (!audioRef.current) {
+      console.log("No audio ref available for song:", song.id);
+      return;
+    }
     
     // Get preview timing
     const previewStart = song.previewTrim?.start || 0;
     const previewEnd = song.previewTrim?.end || (previewStart + 20);
     
     if (isHovering && !isMuted) {
-      // Start playback from preview start
-      audioRef.current.currentTime = previewStart;
-      audioRef.current.play().catch(error => {
-        console.log("Auto-play prevented by browser:", error);
-        
-        // Fallback to simulated playback
-        simulatePlayback(previewStart, previewEnd);
-      });
-    } else {
-      // Stop playback
-      if (audioRef.current && isPlaying) {
-        audioRef.current.pause();
-      }
+      console.log("Starting preview playback for song:", song.id);
       
-      // Clear any simulation interval
+      // Always set the current time to the preview start
+      audioRef.current.currentTime = previewStart;
+      
+      // Start playback
+      const playPromise = audioRef.current.play();
+      
+      if (playPromise !== undefined) {
+        playPromise.then(() => {
+          console.log("Playback started successfully for song:", song.id);
+        }).catch(error => {
+          console.log("Auto-play prevented by browser:", error);
+          
+          // Fallback to simulated playback
+          console.log("Using simulated playback for song:", song.id);
+          simulatePlayback(previewStart, previewEnd);
+        });
+      }
+    } else {
+      console.log("Stopping preview playback for song:", song.id);
+      
+      // Stop audio playback immediately
+      audioRef.current.pause();
+      
+      // Clear any simulation
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
         intervalRef.current = null;
+        setIsPlaying(false);
+        setProgress(0);
       }
     }
-  }, [isHovering, isMuted, audioLoaded, song.previewTrim]);
+  }, [isHovering, isMuted, song.id, song.previewTrim]);
   
   // Update muted state when it changes
   useEffect(() => {

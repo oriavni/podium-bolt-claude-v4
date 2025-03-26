@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useCopyToClipboard } from "@/lib/hooks/use-copy-to-clipboard";
+import { useFileUpload } from "@/lib/hooks/use-file-upload";
 
 export function UploadSongForm() {
   const [title, setTitle] = useState("");
@@ -72,6 +73,9 @@ export function UploadSongForm() {
     setPreviewTrim({ start, end });
   };
   
+  // Import the file upload hook
+  const { uploadFile, isUploading: isFileUploading, progress: fileUploadProgress } = useFileUpload();
+  
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -82,24 +86,50 @@ export function UploadSongForm() {
     
     setIsUploading(true);
     
-    // Simulate upload progress
-    const interval = setInterval(() => {
-      setUploadProgress(prev => {
-        if (prev >= 95) {
-          clearInterval(interval);
-          return prev;
-        }
-        return prev + 5;
-      });
-    }, 500);
-    
     try {
-      // In a real app, you would upload the files to a server here
-      // This is just a simulation
-      await new Promise(resolve => setTimeout(resolve, 3000));
+      // First upload the audio file
+      const uploadedAudio = audioFile ? await uploadFile(audioFile, {
+        fileType: 'audio',
+        onProgress: (progress) => {
+          setUploadProgress(progress * 0.6); // Audio upload is 60% of total progress
+        }
+      }) : null;
+      
+      if (!uploadedAudio) {
+        throw new Error("Failed to upload audio file");
+      }
+      
+      // Then upload the cover image if provided
+      const uploadedImage = coverImage ? await uploadFile(coverImage, {
+        fileType: 'image',
+        onProgress: (progress) => {
+          setUploadProgress(60 + progress * 0.3); // Image upload is 30% of total progress
+        }
+      }) : null;
+      
+      // Prepare song data with the uploaded files
+      const songData = {
+        title,
+        description,
+        genres,
+        youtubeUrl,
+        audioUrl: uploadedAudio.url,
+        coverUrl: uploadedImage ? uploadedImage.url : undefined,
+        previewTrim,
+        createdAt: new Date().toISOString(),
+      };
+      
+      // Simulate saving song data to database
+      console.log("Saving song data:", songData);
+      setUploadProgress(95);
+      
+      // Simulate API call to save the song data
+      await new Promise(resolve => setTimeout(resolve, 500));
       
       // Complete the upload
       setUploadProgress(100);
+      
+      // Show success and reset form
       setTimeout(() => {
         alert("Song uploaded successfully!");
         

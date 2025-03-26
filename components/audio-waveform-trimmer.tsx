@@ -38,12 +38,21 @@ export function AudioWaveformTrimmer({
 
   // Create audio context and load audio file
   useEffect(() => {
+    console.log("Initializing audio waveform trimmer with file:", audioFile?.name);
+    
     // Create audio element
     const audio = new Audio();
     audioRef.current = audio;
     
+    // Add more detailed logging
+    const handleError = (e: Event) => {
+      console.error("Audio error:", (e as ErrorEvent).message);
+      setIsLoading(false); // Still stop loading even if there's an error
+    };
+    
     // Set up event listeners
     audio.addEventListener('loadedmetadata', () => {
+      console.log("Audio metadata loaded, duration:", audio.duration);
       setDuration(audio.duration);
       
       // Ensure initial start is valid
@@ -53,6 +62,15 @@ export function AudioWaveformTrimmer({
       // Notify parent with valid start and end
       onPreviewGenerated(validStart, validStart + PREVIEW_DURATION);
       setIsLoading(false);
+    });
+    
+    // Add loaded data event for more reliable loading detection
+    audio.addEventListener('loadeddata', () => {
+      console.log("Audio data loaded");
+      if (isLoading && audio.duration > 0) {
+        setDuration(audio.duration);
+        setIsLoading(false);
+      }
     });
     
     audio.addEventListener('timeupdate', () => {
@@ -67,13 +85,119 @@ export function AudioWaveformTrimmer({
     });
     
     audio.addEventListener('ended', () => {
+      console.log("Audio playback ended");
       setIsPlaying(false);
     });
     
-    audio.addEventListener('play', () => setIsPlaying(true));
-    audio.addEventListener('pause', () => setIsPlaying(false));
+    audio.addEventListener('play', () => {
+      console.log("Audio playback started");
+      setIsPlaying(true);
+    });
     
-    // Generate mock waveform data since we can't actually decode the audio
+    audio.addEventListener('pause', () => {
+      console.log("Audio playback paused");
+      setIsPlaying(false);
+    });
+    
+    audio.addEventListener('error', handleError);
+    
+    // Generate waveform data from the actual audio file
+    const generateWaveformData = async () => {
+      try {
+        console.log("Generating waveform data for file:", audioFile?.name);
+        
+        if (!audioFile) {
+          throw new Error("No audio file provided");
+        }
+        
+        // Create audio context
+        const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+        console.log("Audio context created");
+        
+        // Create file reader
+        const reader = new FileReader();
+        
+        // Handle successful file read
+        reader.onload = async (e) => {
+          console.log("File read complete, decoding audio data");
+          
+          try {
+            const arrayBuffer = e.target?.result as ArrayBuffer;
+            if (!arrayBuffer) {
+              throw new Error("Failed to get ArrayBuffer from FileReader");
+            }
+            
+            // Decode the audio data
+            console.log("Starting audio decoding");
+            const audioBuffer = await audioContext.decodeAudioData(arrayBuffer).catch(err => {
+              console.error("Audio decoding error:", err);
+              throw err;
+            });
+            
+            console.log("Audio decoded, channels:", audioBuffer.numberOfChannels, "length:", audioBuffer.length);
+            
+            // Extract waveform data
+            const channelData = audioBuffer.getChannelData(0); // Use first channel
+            console.log("Channel data retrieved, samples:", channelData.length);
+            
+            const samples = 200; // Number of data points for our visualization
+            const blockSize = Math.floor(channelData.length / samples);
+            const waveform = [];
+            
+            // Calculate peak values for visualization
+            for (let i = 0; i < samples; i++) {
+              let blockStart = blockSize * i;
+              let sum = 0;
+              let peak = 0;
+              
+              // Find the peak amplitude in this block
+              for (let j = 0; j < blockSize; j++) {
+                const amplitude = Math.abs(channelData[blockStart + j] || 0);
+                sum += amplitude;
+                peak = Math.max(peak, amplitude);
+              }
+              
+              // Use a combination of peak and average for better visualization
+              const average = sum / blockSize;
+              const value = (average * 0.7) + (peak * 0.3);
+              
+              // Add a base height and scale up for visibility
+              waveform.push(0.15 + value * 3);
+            }
+            
+            console.log("Waveform generated with", samples, "data points");
+            setWaveformData(waveform);
+            
+            // Also use this to set the duration if needed
+            if (!duration && audioBuffer.duration) {
+              console.log("Setting duration from audio buffer:", audioBuffer.duration);
+              setDuration(audioBuffer.duration);
+            }
+          } catch (err) {
+            console.error("Error processing audio data:", err);
+            // Fall back to mock waveform if decoding fails
+            generateMockWaveform();
+          }
+        };
+        
+        // Handle file reader errors
+        reader.onerror = (error) => {
+          console.error("FileReader error:", error);
+          // Fall back to mock waveform
+          generateMockWaveform();
+        };
+        
+        // Start reading the file
+        console.log("Starting file read as ArrayBuffer");
+        reader.readAsArrayBuffer(audioFile);
+      } catch (err) {
+        console.error("Error in waveform generation:", err);
+        // Fall back to mock waveform
+        generateMockWaveform();
+      }
+    };
+    
+    // Fallback mock waveform generator if we can't decode the audio
     const generateMockWaveform = () => {
       const samples = 200;
       const mockWaveform = [];
@@ -87,40 +211,48 @@ export function AudioWaveformTrimmer({
       }
       
       setWaveformData(mockWaveform);
-      
-      // Set a mock duration if the audio doesn't load
-      setTimeout(() => {
-        if (isLoading) {
-          const mockDuration = 180; // 3 minutes
-          setDuration(mockDuration);
-          
-          // Ensure initial start is valid for mock duration
-          const validStart = Math.min(initialStart, Math.max(0, mockDuration - PREVIEW_DURATION));
-          setPreviewStart(validStart);
-          
-          // Notify parent with valid start and end
-          onPreviewGenerated(validStart, validStart + PREVIEW_DURATION);
-          setIsLoading(false);
-        }
-      }, 1000);
     };
     
-    generateMockWaveform();
+    // Try to generate real waveform, fallback to mock if needed
+    generateWaveformData();
     
-    // Set audio source (this will likely fail in the demo, but we'll handle that with mock data)
+    // Set audio source with better error handling
     try {
+      console.log("Creating object URL for audio file:", audioFile?.name);
+      
+      // Create URL first
       const url = URL.createObjectURL(audioFile);
+      console.log("Created URL:", url);
+      
+      // Then set the source and load
       audio.src = url;
+      
+      // Force loading immediately
       audio.load();
       
+      // Set a timeout to detect if loading takes too long
+      const loadingTimeout = setTimeout(() => {
+        if (isLoading) {
+          console.warn("Audio loading timed out, forcing loading to complete");
+          setIsLoading(false);
+        }
+      }, 5000);
+      
+      // Return cleanup function
       return () => {
+        console.log("Cleaning up audio resources");
+        clearTimeout(loadingTimeout);
         audio.pause();
+        audio.removeEventListener('error', handleError);
         URL.revokeObjectURL(url);
       };
     } catch (error) {
-      console.error("Error loading audio:", error);
+      console.error("Error creating audio URL:", error);
+      setIsLoading(false);
+      
       return () => {
         audio.pause();
+        audio.removeEventListener('error', handleError);
       };
     }
   }, [audioFile, initialStart, onPreviewGenerated, isLoading]);
@@ -254,25 +386,35 @@ export function AudioWaveformTrimmer({
     if (isPlaying) {
       audioRef.current.pause();
     } else {
-      // If we're at the end of the preview, go back to the start
+      // If we're outside of the preview region, reset to the start
       if (currentTime >= previewEnd || currentTime < previewStart) {
         audioRef.current.currentTime = previewStart;
       }
+      
+      // Attempt to play the audio
+      audioRef.current.volume = 1.0; // Ensure audible volume for preview
+      
       audioRef.current.play().catch(error => {
         console.log("Play prevented:", error);
-        // Simulate playback for demo purposes
+        // Fallback for browsers that prevent audio playback
+        // Visually simulate playback for the user
+        let simulatedTime = currentTime < previewStart ? previewStart : currentTime;
         setIsPlaying(true);
+        
         const interval = setInterval(() => {
-          setCurrentTime(prev => {
-            const next = prev + 0.1;
-            if (next >= previewEnd) {
-              clearInterval(interval);
-              setIsPlaying(false);
-              return previewStart;
-            }
-            return next;
-          });
+          simulatedTime += 0.1;
+          setCurrentTime(simulatedTime);
+          
+          if (simulatedTime >= previewEnd) {
+            clearInterval(interval);
+            setIsPlaying(false);
+            simulatedTime = previewStart;
+            setCurrentTime(previewStart);
+          }
         }, 100);
+        
+        // Store the interval for cleanup
+        return () => clearInterval(interval);
       });
     }
   };

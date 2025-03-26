@@ -2222,6 +2222,9 @@ video {
 .ease-linear {
   animation-timing-function: linear;
 }
+.paused {
+  animation-play-state: paused;
+}
 
 .file\:border-0::file-selector-button {
   border-width: 0px;
