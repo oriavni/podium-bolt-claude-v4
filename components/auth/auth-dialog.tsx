@@ -6,10 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/lib/hooks/use-auth";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, Info } from "lucide-react";
 import { doc, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { UserRole } from '@/lib/types';
+import { useRouter } from "next/navigation";
 
 interface AuthDialogProps {
   open: boolean;
@@ -25,12 +26,15 @@ export function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
   const [mediaOutlet, setMediaOutlet] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const router = useRouter();
+  
   // Force loading state to reset when dialog closes
   useEffect(() => {
     if (!open) {
       setLoading(false);
     }
   }, [open]);
+  
   const { signIn, signUp } = useAuth();
 
   const getErrorMessage = (error: any): string => {
@@ -57,6 +61,11 @@ export function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
     setError(null);
   };
 
+  // Determine if a role requires admin approval
+  const roleRequiresApproval = (role: UserRole): boolean => {
+    return ['professional', 'media', 'influencer'].includes(role);
+  };
+
   // Use a non-async function to ensure proper loading state management
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -76,6 +85,9 @@ export function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
           // Set role in localStorage immediately
           localStorage.setItem('userRole', role);
           
+          // Determine approval status based on role
+          const needsApproval = roleRequiresApproval(role);
+          
           // Then create the user profile in Firestore
           return setDoc(doc(db, 'user_profiles', userCredential.uid), {
             role,
@@ -85,6 +97,7 @@ export function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
             updatedAt: new Date().toISOString(),
             lastSeenAt: new Date().toISOString(),
             verified: false,
+            profileCompleted: false,
             followerCount: 0,
             followingCount: 0,
             songCount: 0,
@@ -93,22 +106,35 @@ export function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
             website: null,
             location: null,
             socialLinks: {},
+            approvalStatus: needsApproval ? 'pending' : undefined,
+            approvedByAdmin: needsApproval ? false : undefined,
             ...(role === 'media' && { 
               mediaOutlet,
               approvedByAdmin: false
             })
+          }).then(() => {
+            return userCredential;
           }).catch(profileError => {
             console.error("Error creating profile:", profileError);
             // Continue anyway
             return userCredential;
           });
         })
-        .then(() => {
+        .then((userCredential) => {
           // Success - close the dialog
           resetForm();
           clearTimeout(safetyTimeout);
           setLoading(false);
           onOpenChange(false);
+          
+          // Redirect based on role
+          if (roleRequiresApproval(role)) {
+            // Redirect to pending approval page
+            router.push('/approval-pending');
+          } else {
+            // Redirect to profile setup
+            router.push('/profile/setup');
+          }
         })
         .catch(error => {
           console.error("Auth error:", error);
@@ -182,6 +208,17 @@ export function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
                 </select>
               </div>
 
+              {roleRequiresApproval(role) && (
+                <div className="p-3 bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-md text-sm flex gap-2">
+                  <Info className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                  <p>
+                    {role === 'media' ? 'Media accounts' : 
+                     role === 'professional' ? 'Professional accounts' : 
+                     'Influencer accounts'} require admin approval before full access is granted.
+                  </p>
+                </div>
+              )}
+
               {role === 'media' && (
                 <div className="space-y-2">
                   <Label htmlFor="mediaOutlet">Media Outlet</Label>
@@ -192,9 +229,6 @@ export function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
                     placeholder="Name of publication, blog, etc."
                     required={role === 'media'}
                   />
-                  <p className="text-xs text-muted-foreground">
-                    Media accounts require admin approval before full access is granted.
-                  </p>
                 </div>
               )}
             </>
