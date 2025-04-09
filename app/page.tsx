@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
@@ -8,6 +8,7 @@ import { Star, MessageSquare, Calendar, Verified, Filter, ChevronDown, Heart, Sh
 import { cn } from "@/lib/utils";
 import { sampleSongs, type Song } from '@/app/data/sample-songs';
 import { SongButton } from "@/components/song-button";
+import { SongModal } from "@/components/song-modal";
 import Link from "next/link";
 
 interface HomePageSong extends Song {
@@ -20,6 +21,13 @@ export default function Home() {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [selectedGenre, setSelectedGenre] = useState<string | null>(null);
   const [songs, setSongs] = useState<HomePageSong[]>([]);
+  const [openSongModal, setOpenSongModal] = useState<{ isOpen: boolean, song: Song | null }>({
+    isOpen: false,
+    song: null
+  });
+  
+  // Ref to track if we've already checked the hash
+  const hashCheckedRef = useRef(false);
 
   // Load songs on mount
   useEffect(() => {
@@ -48,6 +56,45 @@ export default function Home() {
     // Combine with sample songs
     setSongs([...sampleSongsWithSize, ...availableSongs]);
   }, []);
+  
+  // Check for hash in URL to open song modal
+  useEffect(() => {
+    if (typeof window !== 'undefined' && !hashCheckedRef.current) {
+      hashCheckedRef.current = true;
+      
+      const hash = window.location.hash;
+      if (hash && hash.startsWith('#song-')) {
+        const songId = hash.replace('#song-', '');
+        
+        // Find song with matching ID
+        const song = [...sampleSongs, ...(JSON.parse(localStorage.getItem('uploadedSongs') || '[]'))].find(
+          s => s.id === songId
+        );
+        
+        if (song) {
+          // Open the song modal
+          setOpenSongModal({
+            isOpen: true,
+            song
+          });
+          
+          // Clear hash after handling
+          setTimeout(() => {
+            // Replace the hash with just the base URL to avoid back button issues
+            window.history.replaceState(null, '', window.location.pathname);
+          }, 100);
+        }
+      }
+    }
+  }, [songs]);
+  
+  // Handle modal close
+  const handleSongModalClose = () => {
+    setOpenSongModal({
+      isOpen: false,
+      song: null
+    });
+  };
 
   const filteredSongs = songs.filter(song => {
     const matchesGenre = !selectedGenre || song.genre?.includes(selectedGenre);
@@ -235,6 +282,15 @@ export default function Home() {
           })}
         </div>
       </div>
+      
+      {/* Hash-based Song Modal */}
+      {openSongModal.song && (
+        <SongModal 
+          song={openSongModal.song} 
+          isOpen={openSongModal.isOpen} 
+          onClose={handleSongModalClose} 
+        />
+      )}
     </div>
   );
 }

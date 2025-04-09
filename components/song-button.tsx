@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { SongModal } from "@/components/song-modal";
+import { SongModal } from "@/app/song/[id]/song-modal";
 import { type Song } from "@/app/data/sample-songs";
 import { SongPreviewPlayer } from "@/components/song-preview-player";
 import { useAudio } from "@/lib/context/audio-context";
@@ -70,7 +70,7 @@ export function SongButton({
         onMouseLeave={() => setIsHovering(false)}
       >
         {/* Show preview player when hovering (if not currently playing in main player) */}
-        {!isCurrentSong && !playOnHover && <SongPreviewPlayer song={song} isHovering={isHovering} />}
+        {typeof window !== 'undefined' && !isCurrentSong && !playOnHover && <SongPreviewPlayer song={song} isHovering={isHovering} />}
         
         {/* Show play/pause overlay */}
         {showPlayButton && (

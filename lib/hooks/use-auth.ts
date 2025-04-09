@@ -16,17 +16,57 @@ export function useAuth() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Check for existing server-side session first
+    const checkServerSession = async () => {
+      try {
+        console.log('Checking server-side session...');
+        const response = await fetch('/api/auth/session', {
+          method: 'GET',
+          credentials: 'include',
+          cache: 'no-store'
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          console.log('Server session check result:', { authenticated: data.authenticated });
+        } else {
+          console.warn('Failed to check server session:', response.status);
+        }
+      } catch (error) {
+        console.error('Error checking server session:', error);
+      }
+    };
+    
+    // Run the session check
+    checkServerSession();
+    
+    // Set up Firebase auth state listener
     const unsubscribe = onAuthStateChanged(auth, async (authUser) => {
+      console.log('Firebase auth state changed:', authUser ? 'User authenticated' : 'No user');
       setUser(authUser);
       
       if (authUser) {
         // User is signed in, create a session cookie
         try {
-          const idToken = await getIdToken(authUser);
+          console.log('Getting ID token for session cookie...');
+          // Force token refresh to ensure we have the latest one
+          const idToken = await getIdToken(authUser, true);
+          console.log('Got fresh ID token, creating session cookie...');
           await createSessionCookie(idToken);
         } catch (error) {
           console.error("Error creating session cookie:", error);
           // Continue anyway, as client-side auth will still work
+        }
+      } else {
+        // User is signed out, clear the session cookie
+        try {
+          console.log('User signed out, clearing session cookie...');
+          await fetch('/api/auth/session', {
+            method: 'DELETE',
+            credentials: 'include',
+          });
+        } catch (error) {
+          console.error("Error clearing session cookie:", error);
         }
       }
       
@@ -110,20 +150,46 @@ export function useAuth() {
   
   // Helper function to create a session cookie
   const createSessionCookie = async (idToken: string) => {
-    const response = await fetch('/api/auth/session', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ idToken }),
-    });
+    console.log('Creating session cookie with idToken length:', idToken.length);
     
-    if (!response.ok) {
-      const data = await response.json();
-      throw new Error(data.error || 'Failed to create session');
+    try {
+      const response = await fetch('/api/auth/session', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ idToken }),
+        // Add these options for better error handling
+        credentials: 'include',
+        cache: 'no-store',
+      });
+      
+      console.log('Session cookie creation response status:', response.status);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        let errorData;
+        try {
+          errorData = JSON.parse(errorText);
+        } catch (e) {
+          errorData = { error: errorText };
+        }
+        
+        console.error('Failed to create session cookie:', {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorData.error || 'Unknown error'
+        });
+        
+        throw new Error(errorData.error || 'Failed to create session');
+      }
+      
+      console.log('Session cookie created successfully');
+      return true;
+    } catch (error) {
+      console.error('Error creating session cookie:', error);
+      throw error;
     }
-    
-    return true;
   };
 
   return {

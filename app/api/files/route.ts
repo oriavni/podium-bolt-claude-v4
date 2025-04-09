@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
-import { getAdminAuth } from '@/lib/firebase-admin';
+import { getAdminAuth, getAdminStorage } from '@/lib/firebase-admin';
 import { cookies } from 'next/headers';
 import { StoredFile } from '@/lib/api/file-storage';
+import { storage, app as firebaseApp } from '@/lib/firebase';
+
+// Mark route as dynamic to ensure it's not statically generated
+export const dynamic = 'force-dynamic';
 
 /**
  * API endpoint to retrieve files for a specific user
@@ -15,6 +19,83 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const requestedUserId = searchParams.get('userId');
     const fileType = searchParams.get('fileType');
+    const firebasePath = searchParams.get('path');
+    
+    // Handle direct Firebase storage path requests
+    if (firebasePath) {
+      console.log("Attempting to serve file from Firebase path:", firebasePath);
+      
+      try {
+        // First try using the admin SDK
+        try {
+          const adminStorage = getAdminStorage();
+          if (adminStorage) {
+            try {
+              const file = adminStorage.bucket().file(firebasePath);
+              const [exists] = await file.exists();
+              
+              if (exists) {
+                console.log("File exists in Firebase Storage admin SDK");
+                
+                // Generate a signed URL
+                const [signedUrl] = await file.getSignedUrl({
+                  action: 'read',
+                  expires: Date.now() + 15 * 60 * 1000, // 15 minutes
+                });
+                
+                // Redirect to the signed URL
+                return NextResponse.redirect(signedUrl);
+              }
+            } catch (err) {
+              console.error("Admin SDK file access error:", err);
+            }
+          }
+        } catch (err) {
+          console.error("Admin storage error:", err);
+        }
+        
+        // Then try using the client SDK
+        if (storage && typeof storage.ref === 'function') {
+          try {
+            const storageRef = storage.ref(firebasePath);
+            const downloadUrl = await storageRef.getDownloadURL();
+            
+            console.log("Got download URL from client SDK:", downloadUrl);
+            return NextResponse.redirect(downloadUrl);
+          } catch (err) {
+            console.error("Client SDK file access error:", err);
+          }
+        }
+        
+        // Finally, try to serve from local filesystem as fallback
+        const localPath = path.join(process.cwd(), 'public', 'uploads', firebasePath);
+        if (fs.existsSync(localPath)) {
+          console.log("Serving file from local filesystem:", localPath);
+          
+          const fileBuffer = fs.readFileSync(localPath);
+          const stats = fs.statSync(localPath);
+          const mimeType = getMimeType(localPath);
+          
+          return new Response(fileBuffer, {
+            status: 200,
+            headers: {
+              'Content-Type': mimeType,
+              'Content-Length': stats.size.toString(),
+              'Content-Disposition': `inline; filename="${path.basename(localPath)}"`,
+            }
+          });
+        }
+        
+        // If all attempts fail
+        return NextResponse.json({ error: 'File not found' }, { status: 404 });
+      } catch (error) {
+        console.error("Error serving file:", error);
+        return NextResponse.json(
+          { error: 'Error serving file: ' + (error as Error).message },
+          { status: 500 }
+        );
+      }
+    }
     
     // Check for authentication
     const sessionCookie = cookies().get('session')?.value;

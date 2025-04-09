@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -41,13 +41,17 @@ export default function LibraryPage() {
   const [activeTab, setActiveTab] = useState("songs");
   const [createPlaylistOpen, setCreatePlaylistOpen] = useState(false);
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
-  const [uploadedSongs, setUploadedSongs] = useState<Song[]>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('uploadedSongs');
-      return saved ? JSON.parse(saved) : [];
+  const [uploadedSongs, setUploadedSongs] = useState<Song[]>([]);
+  const [isMounted, setIsMounted] = useState(false);
+  
+  // Safe client-side effect for loading from localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem('uploadedSongs');
+    if (saved) {
+      setUploadedSongs(JSON.parse(saved));
     }
-    return [];
-  });
+    setIsMounted(true);
+  }, []);
 
   const handleUploadClick = () => {
     router.push('/upload');
@@ -81,7 +85,16 @@ export default function LibraryPage() {
 
         <TabsContent value="songs" className="mt-6">
           <div className="grid gap-4">
-            {uploadedSongs.length === 0 ? (
+            {!isMounted ? (
+              // Skeleton loading state (simple version)
+              <div className="flex items-center gap-4 p-4 rounded-lg bg-secondary/50">
+                <div className="w-8 h-8 rounded-full bg-muted animate-pulse"></div>
+                <div className="flex-1 space-y-2">
+                  <div className="h-4 bg-muted rounded animate-pulse"></div>
+                  <div className="h-3 bg-muted rounded animate-pulse w-2/3"></div>
+                </div>
+              </div>
+            ) : uploadedSongs.length === 0 ? (
               <div className="flex items-center gap-4 p-4 rounded-lg bg-secondary/50 hover:bg-secondary/70 transition-colors">
                 <Music className="w-8 h-8 text-muted-foreground" />
                 <div className="flex-1">

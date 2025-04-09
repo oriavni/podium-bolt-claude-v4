@@ -1,17 +1,27 @@
 "use client";
 
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Play, ThumbsUp, User } from "lucide-react";
+import { Play, ThumbsUp, User, Share2, Download, Mail, Instagram, WhatsApp, Copy, Check } from "lucide-react";
 import { type Song } from '@/app/data/sample-songs';
 import Link from "next/link";
+import { ShareImageSimple } from "@/components/share-image-simple";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface SharePageClientProps {
   song: Song;
 }
 
 export function SharePageClient({ song }: SharePageClientProps) {
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [selectedPlatform, setSelectedPlatform] = useState<string>("instagram");
+  const [isCopied, setIsCopied] = useState(false);
+  
   // Generate a profile link for the artist
   const getArtistProfileLink = () => {
     // For simplicity, we'll assume all artists are musicians
@@ -26,6 +36,22 @@ export function SharePageClient({ song }: SharePageClientProps) {
                     'professional' : 'media';
     
     return `/profile/${roleType}-1`;
+  };
+  
+  // Handle image generation callback
+  const handleImageGenerated = (imageUrl: string) => {
+    setPreviewUrl(imageUrl);
+  };
+  
+  // Copy share link to clipboard
+  const copyToClipboard = () => {
+    const shareUrl = typeof window !== 'undefined'
+      ? `${window.location.origin}/share/${song.id}`
+      : `/share/${song.id}`;
+    
+    navigator.clipboard.writeText(shareUrl);
+    setIsCopied(true);
+    setTimeout(() => setIsCopied(false), 2000);
   };
 
   return (
@@ -50,10 +76,19 @@ export function SharePageClient({ song }: SharePageClientProps) {
             >
               {song.artist}
             </Link>
-            <div className="mt-4">
+            <div className="mt-4 flex gap-2 justify-center">
               <Button size="lg" className="gap-2">
                 <Play className="w-5 h-5" />
                 Play Now
+              </Button>
+              <Button 
+                size="lg" 
+                variant="outline" 
+                className="gap-2 bg-black/30 hover:bg-black/50"
+                onClick={() => setShareDialogOpen(true)}
+              >
+                <Share2 className="w-5 h-5" />
+                Share
               </Button>
             </div>
           </div>
@@ -139,6 +174,117 @@ export function SharePageClient({ song }: SharePageClientProps) {
           </div>
         </div>
       </div>
+      
+      {/* Share Dialog */}
+      <Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Share "{song.title}"</DialogTitle>
+          </DialogHeader>
+          
+          <Tabs defaultValue="image" className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="image">Share Image</TabsTrigger>
+              <TabsTrigger value="platforms">Share Links</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="image" className="space-y-4 pt-4">
+              <ShareImageSimple song={song} onShare={handleImageGenerated} />
+            </TabsContent>
+            
+            <TabsContent value="platforms" className="space-y-6 pt-4">
+              {/* Share Platforms */}
+              <div className="space-y-3">
+                <h3 className="text-sm font-medium">Share to</h3>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    variant="outline"
+                    className="justify-start gap-2"
+                    onClick={() => {
+                      const shareUrl = typeof window !== 'undefined'
+                        ? `${window.location.origin}/share/${song.id}`
+                        : `/share/${song.id}`;
+                      navigator.clipboard.writeText(shareUrl);
+                      alert('Save the image and share it on Instagram with the copied link');
+                    }}
+                  >
+                    <Instagram className="h-5 w-5" />
+                    <span>Instagram</span>
+                  </Button>
+                  
+                  <Button
+                    variant="outline"
+                    className="justify-start gap-2"
+                    onClick={() => {
+                      const shareUrl = typeof window !== 'undefined'
+                        ? `${window.location.origin}/share/${song.id}`
+                        : `/share/${song.id}`;
+                      window.open(`https://wa.me/?text=${encodeURIComponent(`Check out "${song.title}" by ${song.artist} on Podium! ${shareUrl}`)}`, '_blank');
+                    }}
+                  >
+                    <WhatsApp className="h-5 w-5" />
+                    <span>WhatsApp</span>
+                  </Button>
+                  
+                  <Button
+                    variant="outline"
+                    className="justify-start gap-2"
+                    onClick={() => {
+                      const shareUrl = typeof window !== 'undefined'
+                        ? `${window.location.origin}/share/${song.id}`
+                        : `/share/${song.id}`;
+                      window.open(`mailto:?subject=${encodeURIComponent(`Check out "${song.title}" by ${song.artist}`)}&body=${encodeURIComponent(`I thought you might like "${song.title}" by ${song.artist}.\n\nListen here: ${shareUrl}`)}`, '_blank');
+                    }}
+                  >
+                    <Mail className="h-5 w-5" />
+                    <span>Email</span>
+                  </Button>
+                  
+                  <Button
+                    variant="outline"
+                    className="justify-start gap-2"
+                    onClick={() => {
+                      if (previewUrl) {
+                        const a = document.createElement("a");
+                        a.href = previewUrl;
+                        a.download = `${song.title.replace(/\s+/g, "-").toLowerCase()}-share.png`;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                      } else {
+                        alert('Please generate an image first');
+                      }
+                    }}
+                  >
+                    <Download className="h-5 w-5" />
+                    <span>Download</span>
+                  </Button>
+                </div>
+              </div>
+              
+              {/* Link Section */}
+              <div className="space-y-2">
+                <div className="text-sm font-medium">Share Link</div>
+                <div className="flex items-center space-x-2">
+                  <Input 
+                    value={typeof window !== 'undefined' ? `${window.location.origin}/share/${song.id}` : `/share/${song.id}`}
+                    readOnly 
+                    className="flex-1"
+                  />
+                  <Button 
+                    size="icon" 
+                    variant={isCopied ? "default" : "outline"} 
+                    onClick={copyToClipboard}
+                    className="flex-shrink-0"
+                  >
+                    {isCopied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                  </Button>
+                </div>
+              </div>
+            </TabsContent>
+          </Tabs>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

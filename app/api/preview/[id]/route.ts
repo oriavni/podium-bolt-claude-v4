@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sampleSongs } from '@/app/data/sample-songs';
 
+// Mark route as dynamic to ensure it's not statically generated
+export const dynamic = 'force-dynamic';
+
 // This is a mock API route that would normally stream audio data
 // In a real implementation, this would fetch the audio file from storage
 // and stream the specific segment based on the preview trim settings

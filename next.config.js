@@ -3,8 +3,10 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
-  images: { unoptimized: true },
-  output: 'export',
+  images: { 
+    domains: ['firebasestorage.googleapis.com'],
+  },
+  // Removed 'output: export' to support dynamic API routes and server-side rendering
   webpack: (config, { dev }) => {
     // Add Babel configuration
     config.module.rules.push({

@@ -2,8 +2,12 @@
 
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { ShareImageSimple } from "@/components/share-image-simple";
 import { 
   Play, 
   SkipBack, 
@@ -27,10 +31,13 @@ import {
   Facebook,
   Music2,
   Twitter,
-  Link
+  ExternalLink,
+  Copy,
+  Mail,
+  WhatsApp,
+  Check
 } from "lucide-react";
 import { type Song } from '@/app/data/sample-songs';
-import { ShareDialog } from "@/components/share-dialog";
 import { CommentsSection } from "@/components/comments-section";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
@@ -307,7 +314,7 @@ export function SongModal({ song, isOpen, onClose }: SongModalProps) {
                           rel="noopener noreferrer"
                           className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-primary transition-colors"
                         >
-                          <Link className="w-4 h-4" />
+                          <ExternalLink className="w-4 h-4" />
                           <span>YouTube</span>
                         </a>
                       )}
@@ -594,11 +601,116 @@ export function SongModal({ song, isOpen, onClose }: SongModalProps) {
       )}
 
       {/* Share Dialog */}
-      <ShareDialog
-        song={song}
-        open={shareDialogOpen}
-        onOpenChange={setShareDialogOpen}
-      />
+      <Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Share "{song.title}"</DialogTitle>
+          </DialogHeader>
+          
+          <Tabs defaultValue="image" className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="image">Share Image</TabsTrigger>
+              <TabsTrigger value="platforms">Share Links</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="image" className="space-y-4 pt-4">
+              {/* Rich Share Image Generator */}
+              <ShareImageSimple song={song} />
+            </TabsContent>
+            
+            <TabsContent value="platforms" className="space-y-6 pt-4">
+              {/* Share Platforms */}
+              <div className="space-y-3">
+                <h3 className="text-sm font-medium">Share to</h3>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    variant="outline"
+                    className="justify-start gap-2"
+                    onClick={() => {
+                      const shareUrl = typeof window !== 'undefined'
+                        ? `${window.location.origin}/share/${song.id}`
+                        : `/share/${song.id}`;
+                      navigator.clipboard.writeText(shareUrl);
+                      alert('Save the image and share it on Instagram with the copied link');
+                    }}
+                  >
+                    <Instagram className="h-5 w-5" />
+                    <span>Instagram</span>
+                  </Button>
+                  
+                  <Button
+                    variant="outline"
+                    className="justify-start gap-2"
+                    onClick={() => {
+                      const shareUrl = typeof window !== 'undefined'
+                        ? `${window.location.origin}/share/${song.id}`
+                        : `/share/${song.id}`;
+                      window.open(`https://wa.me/?text=${encodeURIComponent(`Check out "${song.title}" by ${song.artist} on Podium! ${shareUrl}`)}`, '_blank');
+                    }}
+                  >
+                    <WhatsApp className="h-5 w-5" />
+                    <span>WhatsApp</span>
+                  </Button>
+                  
+                  <Button
+                    variant="outline"
+                    className="justify-start gap-2"
+                    onClick={() => {
+                      const shareUrl = typeof window !== 'undefined'
+                        ? `${window.location.origin}/share/${song.id}`
+                        : `/share/${song.id}`;
+                      window.open(`mailto:?subject=${encodeURIComponent(`Check out "${song.title}" by ${song.artist}`)}&body=${encodeURIComponent(`I thought you might like "${song.title}" by ${song.artist}.\n\nListen here: ${shareUrl}`)}`, '_blank');
+                    }}
+                  >
+                    <Mail className="h-5 w-5" />
+                    <span>Email</span>
+                  </Button>
+                  
+                  <Button
+                    variant="outline"
+                    className="justify-start gap-2"
+                    onClick={() => {
+                      const shareUrl = typeof window !== 'undefined'
+                        ? `${window.location.origin}/share/${song.id}`
+                        : `/share/${song.id}`;
+                      window.open(shareUrl, '_blank');
+                    }}
+                  >
+                    <Download className="h-5 w-5" />
+                    <span>Open Share Page</span>
+                  </Button>
+                </div>
+              </div>
+              
+              {/* Link Section */}
+              <div className="space-y-2">
+                <div className="text-sm font-medium">Share Link</div>
+                <div className="flex items-center space-x-2">
+                  <Input 
+                    value={typeof window !== 'undefined' ? `${window.location.origin}/share/${song.id}` : `/share/${song.id}`}
+                    readOnly 
+                    className="flex-1"
+                  />
+                  <Button 
+                    size="icon" 
+                    variant="outline" 
+                    onClick={() => {
+                      const shareUrl = typeof window !== 'undefined'
+                        ? `${window.location.origin}/share/${song.id}`
+                        : `/share/${song.id}`;
+                      navigator.clipboard.writeText(shareUrl);
+                      alert('Copied to clipboard!');
+                    }}
+                    className="flex-shrink-0"
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </TabsContent>
+          </Tabs>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

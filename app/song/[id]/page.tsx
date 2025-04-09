@@ -1,7 +1,7 @@
 import { sampleSongs } from '@/app/data/sample-songs';
 import { notFound } from 'next/navigation';
 import { Metadata } from 'next';
-import { SongModal } from '@/components/song-modal';
+import { SongPageClient } from './song-page-client';
 
 interface PageProps {
   params: { id: string };
@@ -59,16 +59,6 @@ export default function SongPage({ params }: PageProps) {
     notFound();
   }
 
-  // For server component, we'll redirect to home with a hash to open the modal
-  return (
-    <div className="container mx-auto px-4 py-8">
-      <script
-        dangerouslySetInnerHTML={{
-          __html: `
-            window.location.href = "/#song-${params.id}";
-          `
-        }}
-      />
-    </div>
-  );
+  // Render the client component directly
+  return <SongPageClient initialSong={sampleSong} songId={params.id} />;
 }

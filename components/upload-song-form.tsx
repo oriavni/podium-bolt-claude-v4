@@ -49,9 +49,38 @@ export function UploadSongForm() {
   };
   
   const handleAudioFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+    console.log("🎵 Audio file input change detected");
+    const files = e.target.files;
+    
+    if (!files || files.length === 0) {
+      console.log("❌ No files selected");
+      return;
+    }
+    
+    const file = files[0];
+    // Create detailed debug info
+    console.log("🎵 Selected file:", {
+      name: file.name,
+      type: file.type,
+      size: file.size,
+      sizeInMB: (file.size / (1024 * 1024)).toFixed(2) + " MB",
+      lastModified: new Date(file.lastModified).toISOString()
+    });
+    
     if (file && file.type.startsWith('audio/')) {
+      console.log("✅ Setting audio file in state:", file.name);
       setAudioFile(file);
+      
+      // Log file object details to debug
+      console.log("🔍 File object details:", {
+        constructor: file.constructor.name,
+        isFile: file instanceof File,
+        hasArrayBuffer: typeof file.arrayBuffer === 'function',
+        prototype: Object.getPrototypeOf(file)
+      });
+    } else {
+      console.log("❌ File type not accepted:", file.type);
+      alert("Please select a valid audio file (MP3, WAV, etc.)");
     }
   };
   
@@ -74,22 +103,46 @@ export function UploadSongForm() {
   };
   
   // Import the file upload hook
-  const { uploadFile, isUploading: isFileUploading, progress: fileUploadProgress } = useFileUpload();
+  const { uploadFile, isUploading: isFileUploading, progress: fileUploadProgress, error: fileUploadError } = useFileUpload();
+  const [uploadError, setUploadError] = useState<string | null>(null);
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setUploadError(null);
     
-    if (!title || !audioFile) {
-      alert("Please provide a title and audio file");
+    console.log("📝 Form submission started");
+    
+    if (!title) {
+      console.log("❌ Missing title");
+      alert("Please provide a title for your song");
       return;
     }
     
+    if (!audioFile) {
+      console.log("❌ Missing audio file");
+      alert("Please select an audio file to upload");
+      return;
+    }
+    
+    // Verify the audio file is still valid
+    console.log("🔍 Checking audio file before upload:", {
+      name: audioFile.name,
+      type: audioFile.type,
+      size: audioFile.size,
+      sizeInMB: (audioFile.size / (1024 * 1024)).toFixed(2) + " MB",
+      isFile: audioFile instanceof File,
+      hasArrayBuffer: typeof audioFile.arrayBuffer === 'function'
+    });
+    
     setIsUploading(true);
+    console.log("🚀 Starting song upload with audio file:", audioFile.name);
     
     try {
       // First upload the audio file
+      console.log("Uploading audio file:", audioFile.name);
       const uploadedAudio = audioFile ? await uploadFile(audioFile, {
         fileType: 'audio',
+        songId: Date.now().toString(), // Generate a temporary ID for storage path
         onProgress: (progress) => {
           setUploadProgress(progress * 0.6); // Audio upload is 60% of total progress
         }
@@ -98,6 +151,8 @@ export function UploadSongForm() {
       if (!uploadedAudio) {
         throw new Error("Failed to upload audio file");
       }
+      
+      console.log("Audio file uploaded successfully:", uploadedAudio);
       
       // Then upload the cover image if provided
       const uploadedImage = coverImage ? await uploadFile(coverImage, {
@@ -109,6 +164,7 @@ export function UploadSongForm() {
       
       // Prepare song data with the uploaded files
       const songData = {
+        id: Date.now().toString(), // Simple ID generation for demo purposes
         title,
         description,
         genres,
@@ -116,15 +172,41 @@ export function UploadSongForm() {
         audioUrl: uploadedAudio.url,
         coverUrl: uploadedImage ? uploadedImage.url : undefined,
         previewTrim,
+        // Add additional song metadata
+        artist: "Your Artist Name", // In a real app, this would come from the user profile
+        supporters: [],
+        likes: 0,
+        plays: 0,
+        uploadDate: new Date().toISOString(),
         createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       };
       
-      // Simulate saving song data to database
-      console.log("Saving song data:", songData);
-      setUploadProgress(95);
+      // Save song data to Firestore
+      console.log("Saving song data to Firestore:", songData);
       
-      // Simulate API call to save the song data
-      await new Promise(resolve => setTimeout(resolve, 500));
+      try {
+        // Import needed Firebase modules
+        const { doc, setDoc } = await import('firebase/firestore');
+        const { db } = await import('@/lib/firebase');
+        
+        // Use the song ID for the document ID
+        const songDocRef = doc(db, 'songs', songData.id);
+        await setDoc(songDocRef, songData);
+        
+        console.log("Song data saved to Firestore successfully");
+        setUploadProgress(95);
+      } catch (dbError) {
+        console.error("Error saving song to Firestore:", dbError);
+        
+        // Save to localStorage as fallback
+        const existingSongs = JSON.parse(localStorage.getItem('uploadedSongs') || '[]');
+        existingSongs.push(songData);
+        localStorage.setItem('uploadedSongs', JSON.stringify(existingSongs));
+        console.log("Song saved to localStorage as fallback");
+        
+        setUploadProgress(95);
+      }
       
       // Complete the upload
       setUploadProgress(100);
@@ -148,7 +230,10 @@ export function UploadSongForm() {
       
     } catch (error) {
       console.error("Error uploading song:", error);
-      alert("Failed to upload song. Please try again.");
+      console.error("File upload error:", fileUploadError);
+      const errorMsg = (error as Error).message || "Unknown error";
+      setUploadError(errorMsg);
+      alert(`Failed to upload song: ${errorMsg}`);
       setIsUploading(false);
       setUploadProgress(0);
     }
@@ -353,7 +438,7 @@ export function UploadSongForm() {
           </div>
         </div>
         
-        {/* Upload Progress */}
+        {/* Upload Progress and Error */}
         {isUploading && (
           <div className="space-y-2">
             <div className="flex items-center justify-between">
@@ -366,6 +451,14 @@ export function UploadSongForm() {
                 style={{ width: `${uploadProgress}%` }}
               />
             </div>
+          </div>
+        )}
+        
+        {/* Upload Error */}
+        {uploadError && (
+          <div className="p-3 bg-destructive/20 rounded-md border border-destructive text-destructive text-sm">
+            <p className="font-semibold">Upload Error:</p>
+            <p>{uploadError}</p>
           </div>
         )}
         
